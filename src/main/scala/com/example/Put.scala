@@ -3,11 +3,9 @@ package com.example
 import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.Directives.post
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Source}
-import com.example.Post.wait
-import com.example.WebServer.{host, port, wait}
+import akka.stream.scaladsl.Source
+import com.example.WebServer.{host, port}
 
 import scala.concurrent.Future
 
@@ -15,7 +13,6 @@ object Put extends App {
 
   implicit val system: ActorSystem = ActorSystem()
   implicit val materializer: ActorMaterializer = ActorMaterializer()
-
 
   def post(data: Int): Unit = {
     val responseFuture: Future[HttpResponse] =
@@ -28,7 +25,6 @@ object Put extends App {
       )
     println(s"PUT number $data successfully")
   }
-
 
   val numbers = Source(1 to 1000)
   numbers.runForeach(i ⇒ post(i))(materializer)

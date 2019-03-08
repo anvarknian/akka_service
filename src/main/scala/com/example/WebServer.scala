@@ -1,25 +1,20 @@
 package com.example
 
-import akka.Done
 import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-import akka.http.scaladsl.server.Route
 import akka.pattern.ask
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Source}
 import akka.util.Timeout
 
-import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
 import scala.io.StdIn
 
 object WebServer {
 
   case object GetNums
-
 
   class Auction extends Actor with ActorLogging {
     var listOfAllNumbers: List[Int] = List.empty
@@ -32,7 +27,6 @@ object WebServer {
       case _ => log.info("\nInvalid message\n")
     }
   }
-
 
   val host = "localhost"
   val port = 8080
@@ -51,7 +45,6 @@ object WebServer {
       post {
         pathPrefix("num") {
           parameter("num".as[Int]) { num =>
-            // place a bid, fire-and-forget
             auction ! num
             complete((StatusCodes.Accepted, s"\n$num added\n"))
           }
@@ -60,7 +53,6 @@ object WebServer {
         put {
           pathPrefix("num") {
             parameter("num".as[Int]) { num =>
-              // place a bid, fire-and-forget
               auction ! num
               complete((StatusCodes.Accepted, s"\n$num added\n"))
             }

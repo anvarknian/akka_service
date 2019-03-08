@@ -4,7 +4,7 @@ import akka.actor.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.stream.ActorMaterializer
-import akka.stream.scaladsl.{Sink, Source}
+import akka.stream.scaladsl.Source
 import com.example.WebServer.{host, port}
 
 import scala.concurrent.Future
@@ -13,7 +13,6 @@ object Post extends App {
 
   implicit val system: ActorSystem = ActorSystem()
   implicit val materializer: ActorMaterializer = ActorMaterializer()
-
 
   def post(data: Int): Unit = {
     val responseFuture: Future[HttpResponse] =
