@@ -1,54 +1,82 @@
 package com.example
 
-import akka.actor.ActorSystem
-import akka.stream.scaladsl._
-import akka.util.ByteString
+import akka.Done
+import akka.actor.{Actor, ActorLogging, ActorSystem, Props}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
+import akka.http.scaladsl.server.Route
+import akka.pattern.ask
 import akka.stream.ActorMaterializer
+import akka.stream.scaladsl.{Sink, Source}
+import akka.util.Timeout
 
-import scala.concurrent.ExecutionContextExecutor
-import scala.util.Random
+import scala.concurrent.{Await, ExecutionContextExecutor, Future}
+import scala.concurrent.duration._
 import scala.io.StdIn
 
 object WebServer {
 
-  def main(args: Array[String]) {
+  case object GetNums
+
+
+  class Auction extends Actor with ActorLogging {
+    var listOfAllNumbers: List[Int] = List.empty
+
+    def receive = {
+      case num: Int =>
+        listOfAllNumbers = listOfAllNumbers :+ num
+        log.info(s"\n Sum of numbers : ${listOfAllNumbers.sum} \n")
+      case GetNums => sender() ! listOfAllNumbers.sum
+      case _ => log.info("\nInvalid message\n")
+    }
+  }
+
+
+  val host = "localhost"
+  val port = 8080
+
+  def main(args: Array[String]): Unit = {
 
     implicit val system: ActorSystem = ActorSystem()
+    val auction = system.actorOf(Props[Auction], "Sum")
+
     implicit val materializer: ActorMaterializer = ActorMaterializer()
-    // needed for the future flatMap/onComplete in the end
+
+
     implicit val executionContext: ExecutionContextExecutor = system.dispatcher
 
-    // streams are re-usable so we can define it here
-    // and use it for every request
-    val numbers = Source.fromIterator(() =>
-      Iterator.continually(Random.nextInt(10)))
-
-    var list = List.empty[Int]
-
     val route =
-      path("random") {
-        get {
-
-          complete(
-            HttpEntity(
-              ContentTypes.`text/plain(UTF-8)`,
-              // transform each number to a chunk of bytes
-              numbers.map(n => {
-                list = list :+ n
-                ByteString(s"New number added to list - $n - The sum is ${list.sum} \n")
-              })
-            )
-          )
+      post {
+        pathPrefix("num") {
+          parameter("num".as[Int]) { num =>
+            // place a bid, fire-and-forget
+            auction ! num
+            complete((StatusCodes.Accepted, s"\n$num added\n"))
+          }
         }
-      }
-    val host = "localhost"
-    val port = 8080
+      } ~
+        put {
+          pathPrefix("num") {
+            parameter("num".as[Int]) { num =>
+              // place a bid, fire-and-forget
+              auction ! num
+              complete((StatusCodes.Accepted, s"\n$num added\n"))
+            }
+          }
+        } ~
+        get {
+          pathPrefix("sum") {
+            implicit val timeout: Timeout = 0.seconds
+            val result = Await.result(auction ? GetNums, 0 seconds)
+            complete(HttpEntity(ContentTypes.`text/html(UTF-8)`, s"\nThe sum is equal to $result\n"))
+          }
+        }
 
-    val bindingFuture = Http().bindAndHandle(route, host, port)
-    println(s"Server online at http://$host:$port/\nPress RETURN to stop...")
+    val bindingFuture: Future[Http.ServerBinding] = Http().bindAndHandle(route, "localhost", 8080)
+
+    println(s"\nServer online at http://localhost:8080/\nPress RETURN to stop...\n")
     StdIn.readLine() // let it run until user presses return
     bindingFuture
       .flatMap(_.unbind()) // trigger unbinding from the port
